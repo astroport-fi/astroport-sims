@@ -1,11 +1,9 @@
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
-use std::fs::File;
-use std::io::prelude::*;
 
 const FILE_NAME: &str = "simulation.py";
-const FILE_PATH: &str = "../sim/simulation.py";
 const MODULE_NAME: &str = "simulation";
+const FILE_CONTENT: &str = include_str!("simulation.py");
 
 const DEFAULT_POOL_TOKENS: u128 = 0;
 const DEFAULT_TARGET_PRICE: u128 = 1000000000000000000;
@@ -24,9 +22,7 @@ pub struct StableSwapModel {
 
 impl StableSwapModel {
     pub fn new(amp_factor: u128, balances: Vec<u128>, n_coins: u8) -> StableSwapModel {
-        let mut src_file = File::open(FILE_PATH).unwrap();
-        let mut src_content = String::new();
-        let _ = src_file.read_to_string(&mut src_content);
+        let src_content = String::from(FILE_CONTENT);
 
         Self {
             py_src: src_content,
@@ -45,9 +41,7 @@ impl StableSwapModel {
         n_coins: u8,
         pool_token_amount: u128,
     ) -> StableSwapModel {
-        let mut src_file = File::open(FILE_PATH).unwrap();
-        let mut src_content = String::new();
-        let _ = src_file.read_to_string(&mut src_content);
+        let src_content = String::from(FILE_CONTENT);
 
         Self {
             py_src: src_content,
