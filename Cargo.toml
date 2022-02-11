@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "sims/*",
+    "basic_stableswap_sim",
 ]
 
 [profile.release]
