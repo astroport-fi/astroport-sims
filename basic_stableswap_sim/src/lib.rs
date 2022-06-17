@@ -30,7 +30,7 @@ impl StableSwapModel {
             balances,
             n_coins,
             fee: 0,
-            target_prices: vec![DEFAULT_TARGET_PRICE, DEFAULT_TARGET_PRICE],
+            target_prices: vec![DEFAULT_TARGET_PRICE; n_coins as usize],
             pool_tokens: DEFAULT_POOL_TOKENS,
         }
     }
@@ -49,7 +49,7 @@ impl StableSwapModel {
             balances,
             n_coins,
             fee: 0,
-            target_prices: vec![DEFAULT_TARGET_PRICE, DEFAULT_TARGET_PRICE],
+            target_prices: vec![DEFAULT_TARGET_PRICE; n_coins as usize],
             pool_tokens: pool_token_amount,
         }
     }
