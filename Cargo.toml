@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "basic_stableswap_sim",
+    "concentrated_swap_sim"
 ]
 
 [profile.release]
