@@ -166,7 +166,7 @@ class Trader:
         self.price_oracle = self.p0[:]
         self.last_price = self.p0[:]
         self.curve = Curve(A, gamma, D, n, p=p0[:])
-        self.dx = int(D * 1e-8)
+        self.dx = int(sum(D) * 1e-8)
         self.mid_fee = int(mid_fee * 1e10)
         self.out_fee = int(out_fee * 1e10)
         self.D0 = self.curve.D()

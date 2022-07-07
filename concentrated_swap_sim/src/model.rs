@@ -13,21 +13,27 @@ pub struct ConcentratedPairModel<'s> {
     gil: GILGuard,
     a: u128,
     gamma: u128,
-    d: u128,
+    balances: Vec<u128>,
     n: u128,
     initial_prices: Vec<u128>,
     kwargs: Vec<(&'s str, f32)>,
 }
 
 impl<'s> ConcentratedPairModel<'s> {
-    pub fn new_default(a: u128, gamma: u128, d: u128, n: u128, initial_prices: Vec<u128>) -> Self {
+    pub fn new_default(
+        a: u128,
+        gamma: u128,
+        balances: Vec<u128>,
+        n: u128,
+        initial_prices: Vec<u128>,
+    ) -> Self {
         pyo3::prepare_freethreaded_python();
 
         Self {
             gil: Python::acquire_gil(),
             a,
             gamma,
-            d,
+            balances,
             n,
             initial_prices,
             kwargs: vec![],
@@ -37,7 +43,7 @@ impl<'s> ConcentratedPairModel<'s> {
     pub fn new(
         a: u128,
         gamma: u128,
-        d: u128,
+        balances: Vec<u128>,
         n: u128,
         initial_prices: Vec<u128>,
         mid_fee: f32,
@@ -60,7 +66,7 @@ impl<'s> ConcentratedPairModel<'s> {
             gil: Python::acquire_gil(),
             a,
             gamma,
-            d,
+            balances,
             n,
             initial_prices,
             kwargs,
@@ -84,7 +90,7 @@ impl<'s> ConcentratedPairModel<'s> {
                 (
                     self.a,
                     self.gamma,
-                    self.d,
+                    self.balances.clone(),
                     self.n,
                     self.initial_prices.clone(),
                 ),
@@ -127,11 +133,10 @@ mod tests {
     // You may use this test as an example of how to use the model.
     #[test]
     fn test_concentrated_pair_model() {
-        let d = 1_000_000;
         let model = ConcentratedPairModel::new_default(
             2000 * A_MUL,
             (1e-4 * MUL_E18 as f64) as u128,
-            d * MUL_E18,
+            [500_000 * MUL_E18, 250_000 * MUL_E18].to_vec(),
             2,
             vec![MUL_E18, 2 * MUL_E18], // 1 x X = 2 x Y
         );
