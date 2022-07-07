@@ -9,35 +9,23 @@ pub const A_MUL: u128 = 10_000;
 pub const FEE_MUL: u128 = 1e10 as u128;
 pub const MUL_E18: u128 = 1e18 as u128;
 
-pub struct ConcentratedPairModel<'s> {
+pub struct ConcentratedPairModel {
     gil: GILGuard,
-    a: u128,
-    gamma: u128,
-    balances: Vec<u128>,
-    n: u128,
-    initial_prices: Vec<u128>,
-    kwargs: Vec<(&'s str, f32)>,
+    trader: PyObject,
 }
 
-impl<'s> ConcentratedPairModel<'s> {
+impl ConcentratedPairModel {
     pub fn new_default(
         a: u128,
         gamma: u128,
         balances: Vec<u128>,
         n: u128,
         initial_prices: Vec<u128>,
-    ) -> Self {
-        pyo3::prepare_freethreaded_python();
-
-        Self {
-            gil: Python::acquire_gil(),
-            a,
-            gamma,
-            balances,
-            n,
-            initial_prices,
-            kwargs: vec![],
-        }
+    ) -> PyResult<Self> {
+        Self::internal_new(
+            (a, gamma, balances.clone(), n, initial_prices.clone()),
+            None,
+        )
     }
 
     pub fn new(
@@ -51,9 +39,7 @@ impl<'s> ConcentratedPairModel<'s> {
         fee_gamma: f32,
         adjustment_step: f32,
         ma_half_time: u32,
-    ) -> Self {
-        pyo3::prepare_freethreaded_python();
-
+    ) -> PyResult<Self> {
         let kwargs = vec![
             ("mid_fee", mid_fee),
             ("out_fee", out_fee),
@@ -62,15 +48,27 @@ impl<'s> ConcentratedPairModel<'s> {
             ("ma_half_time", ma_half_time as f32),
         ];
 
-        Self {
-            gil: Python::acquire_gil(),
-            a,
-            gamma,
-            balances,
-            n,
-            initial_prices,
-            kwargs,
-        }
+        Self::internal_new(
+            (a, gamma, balances.clone(), n, initial_prices.clone()),
+            Some(kwargs),
+        )
+    }
+
+    fn internal_new(
+        args: impl IntoPy<Py<PyTuple>>,
+        kwargs: Option<Vec<(&str, f32)>>,
+    ) -> PyResult<Self> {
+        pyo3::prepare_freethreaded_python();
+
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        let sim = PyModule::from_code(py, FILE_CONTENT, FILE_NAME, MODULE_NAME)?;
+        let trader_class = sim.getattr("Trader")?;
+        let trader = trader_class
+            .call(args, kwargs.map(|arg| arg.into_py_dict(py)))?
+            .to_object(py);
+
+        Ok(Self { gil, trader })
     }
 
     pub fn call<'a, D>(&'a self, method_name: &str, args: impl IntoPy<Py<PyTuple>>) -> PyResult<D>
@@ -78,26 +76,7 @@ impl<'s> ConcentratedPairModel<'s> {
         D: FromPyObject<'a>,
     {
         let py = self.gil.python();
-        let sim = PyModule::from_code(py, FILE_CONTENT, FILE_NAME, MODULE_NAME)?;
-        let curve_class = sim.getattr("Trader")?;
-        let kwargs = if self.kwargs.is_empty() {
-            None
-        } else {
-            Some(self.kwargs.clone().into_py_dict(py))
-        };
-        let model = curve_class
-            .call(
-                (
-                    self.a,
-                    self.gamma,
-                    self.balances.clone(),
-                    self.n,
-                    self.initial_prices.clone(),
-                ),
-                kwargs,
-            )?
-            .to_object(py);
-        let res_obj = model.call_method1(py, method_name, args)?;
+        let res_obj = self.trader.call_method1(py, method_name, args)?;
         res_obj.into_ref(py).extract()
     }
 }
@@ -139,7 +118,8 @@ mod tests {
             [500_000 * MUL_E18, 250_000 * MUL_E18].to_vec(),
             2,
             vec![MUL_E18, 2 * MUL_E18], // 1 x X = 2 x Y
-        );
+        )
+        .unwrap();
 
         let fee: u128 = model.call("fee", ()).unwrap();
         assert_eq!(0.001_f32, fee as f32 / FEE_MUL as f32);
@@ -153,7 +133,7 @@ mod tests {
 
         // Sell 1 x Y tokens
         let x_amount: u128 = model.call("sell", (1 * MUL_E18, 0, 1)).unwrap();
-        assert_eq!(1.99799999141555_f64, x_amount as f64 / MUL_E18 as f64);
+        assert_eq!(1.9979999999956721_f64, x_amount as f64 / MUL_E18 as f64);
     }
 
     #[test]
