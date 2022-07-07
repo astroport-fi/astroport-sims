@@ -79,6 +79,20 @@ impl ConcentratedPairModel {
         let res_obj = self.trader.call_method1(py, method_name, args)?;
         res_obj.into_ref(py).extract()
     }
+
+    pub fn call_curve<'a, D>(
+        &'a self,
+        method_name: &str,
+        args: impl IntoPy<Py<PyTuple>>,
+    ) -> PyResult<D>
+    where
+        D: FromPyObject<'a>,
+    {
+        let py = self.gil.python();
+        let curve = self.trader.getattr(py, "curve")?;
+        let res_obj = curve.call_method1(py, method_name, args)?;
+        res_obj.into_ref(py).extract()
+    }
 }
 
 pub struct Caller {
@@ -142,5 +156,20 @@ mod tests {
             .call_func("geometric_mean", (vec![100, 100],))
             .unwrap();
         assert_eq!(100, res);
+    }
+
+    #[test]
+    fn test_call_curve() {
+        let model = ConcentratedPairModel::new_default(
+            2000 * A_MUL,
+            (1e-4 * MUL_E18 as f64) as u128,
+            [500_000 * MUL_E18, 250_000 * MUL_E18].to_vec(),
+            2,
+            vec![MUL_E18, 2 * MUL_E18], // 1 x X = 2 x Y
+        )
+        .unwrap();
+
+        let res: u128 = model.call_curve("D", ()).unwrap();
+        assert_eq!(res as f32 / MUL_E18 as f32, 1_000_000_f32);
     }
 }
