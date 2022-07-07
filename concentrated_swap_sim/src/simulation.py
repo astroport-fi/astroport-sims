@@ -134,7 +134,12 @@ class Curve:
             self.p = p
         else:
             self.p = [10 ** 18] * n
-        self.x = [D // n * 10 ** 18 // self.p[i] for i in range(n)]
+        # These lines differ from the original Curve's code.
+        # We need to have an ability to define initial pool balances
+        if isinstance(D, list):
+            self.x = D
+        else:
+            self.x = [D // n * 10 ** 18 // _p for _p in self.p]
 
     def xp(self):
         return [x * p // 10 ** 18 for x, p in zip(self.x, self.p)]
