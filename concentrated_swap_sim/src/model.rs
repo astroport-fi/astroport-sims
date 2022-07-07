@@ -96,6 +96,30 @@ impl<'s> ConcentratedPairModel<'s> {
     }
 }
 
+pub struct Caller {
+    gil: GILGuard,
+}
+
+impl Caller {
+    pub fn new() -> Self {
+        pyo3::prepare_freethreaded_python();
+
+        Self {
+            gil: Python::acquire_gil(),
+        }
+    }
+
+    fn call_func<'a, D>(&'a self, func: &str, args: impl IntoPy<Py<PyTuple>>) -> PyResult<D>
+    where
+        D: FromPyObject<'a>,
+    {
+        let code = PyModule::from_code(self.gil.python(), FILE_CONTENT, FILE_NAME, MODULE_NAME)?;
+
+        let res_obj = code.call_method1(func, args)?;
+        res_obj.extract()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,5 +149,13 @@ mod tests {
         // Sell 1 x Y tokens
         let x_amount: u128 = model.call("sell", (1 * MUL_E18, 0, 1)).unwrap();
         assert_eq!(1.99799999141555_f64, x_amount as f64 / MUL_E18 as f64);
+    }
+
+    #[test]
+    fn test_any_func() {
+        let res: u128 = Caller::new()
+            .call_func("geometric_mean", (vec![100, 100],))
+            .unwrap();
+        assert_eq!(100, res);
     }
 }
