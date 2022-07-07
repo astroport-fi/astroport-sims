@@ -109,7 +109,7 @@ impl Caller {
         }
     }
 
-    fn call_func<'a, D>(&'a self, func: &str, args: impl IntoPy<Py<PyTuple>>) -> PyResult<D>
+    pub fn call_func<'a, D>(&'a self, func: &str, args: impl IntoPy<Py<PyTuple>>) -> PyResult<D>
     where
         D: FromPyObject<'a>,
     {
