@@ -184,6 +184,8 @@ class Trader:
         self.slippage = 0
         self.slippage_count = 0
 
+        self.t = 0
+
     def fee(self):
         f = reduction_coefficient(self.curve.xp(), self.fee_gamma)
         return (self.mid_fee * f + self.out_fee * (10 ** 18 - f)) // 10 ** 18
