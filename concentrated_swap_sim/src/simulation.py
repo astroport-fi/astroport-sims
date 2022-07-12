@@ -125,11 +125,6 @@ def solve_D(A, gamma, x):
     return newton_D(A, gamma, x, D0)
 
 
-# added this function to evaluate result of Rust's halfpow implementation
-def halfpow(power):
-    return .5 ** power
-
-
 class Curve:
     def __init__(self, A, gamma, D, n, p=None):
         self.A = A

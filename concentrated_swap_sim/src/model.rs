@@ -80,6 +80,25 @@ impl ConcentratedPairModel {
         res_obj.into_ref(py).extract()
     }
 
+    pub fn get_attr<'a, D>(&'a self, attr: &str) -> PyResult<D>
+    where
+        D: FromPyObject<'a>,
+    {
+        let py = self.gil.python();
+        let res_obj = self.trader.getattr(py, attr)?;
+        res_obj.into_ref(py).extract()
+    }
+
+    pub fn get_attr_curve<'a, D>(&'a self, attr: &str) -> PyResult<D>
+    where
+        D: FromPyObject<'a>,
+    {
+        let py = self.gil.python();
+        let curve = self.trader.getattr(py, "curve")?;
+        let res_obj = curve.getattr(py, attr)?;
+        res_obj.into_ref(py).extract()
+    }
+
     pub fn call_curve<'a, D>(
         &'a self,
         method_name: &str,
@@ -171,5 +190,29 @@ mod tests {
 
         let res: u128 = model.call_curve("D", ()).unwrap();
         assert_eq!(res as f32 / MUL_E18 as f32, 1_000_000_f32);
+
+        let offer_amount = 100u128;
+        let res: u128 = model
+            .call_curve("y", ((500_000 + offer_amount) * MUL_E18, 0, 1))
+            .unwrap();
+        assert_eq!(res / MUL_E18, 249950);
+    }
+
+    #[test]
+    fn test_getattr() {
+        let model = ConcentratedPairModel::new_default(
+            2000 * A_MUL,
+            (1e-4 * MUL_E18 as f64) as u128,
+            [500_000 * MUL_E18, 250_000 * MUL_E18].to_vec(),
+            2,
+            vec![MUL_E18, 2 * MUL_E18], // 1 x X = 2 x Y
+        )
+        .unwrap();
+
+        let res: u128 = model.get_attr("xcp_profit").unwrap();
+        assert_eq!(res, 1000000000000000000);
+
+        let res: Vec<u128> = model.get_attr_curve("p").unwrap();
+        assert_eq!(res, vec![1000000000000000000, 2000000000000000000]);
     }
 }
