@@ -34,18 +34,18 @@ impl ConcentratedPairModel {
         balances: Vec<u128>,
         n: u128,
         initial_prices: Vec<u128>,
-        mid_fee: f32,
-        out_fee: f32,
-        fee_gamma: f32,
-        adjustment_step: f32,
+        mid_fee: f64,
+        out_fee: f64,
+        fee_gamma: u128,
+        adjustment_step: f64,
         ma_half_time: u32,
     ) -> PyResult<Self> {
         let kwargs = vec![
             ("mid_fee", mid_fee),
             ("out_fee", out_fee),
-            ("fee_gamma", fee_gamma),
+            ("fee_gamma", fee_gamma as f64),
             ("adjustment_step", adjustment_step),
-            ("ma_half_time", ma_half_time as f32),
+            ("ma_half_time", ma_half_time as f64),
         ];
 
         Self::internal_new(
@@ -56,7 +56,7 @@ impl ConcentratedPairModel {
 
     fn internal_new(
         args: impl IntoPy<Py<PyTuple>>,
-        kwargs: Option<Vec<(&str, f32)>>,
+        kwargs: Option<Vec<(&str, f64)>>,
     ) -> PyResult<Self> {
         pyo3::prepare_freethreaded_python();
 
@@ -167,6 +167,20 @@ mod tests {
         // Sell 1 x Y tokens
         let x_amount: u128 = model.call("sell", (1 * MUL_E18, 0, 1)).unwrap();
         assert_eq!(1.9979999999956721_f64, x_amount as f64 / MUL_E18 as f64);
+
+        let model = ConcentratedPairModel::new(
+            2000 * A_MUL,
+            (1e-4 * MUL_E18 as f64) as u128,
+            [500_000 * MUL_E18, 250_000 * MUL_E18].to_vec(),
+            2,
+            vec![MUL_E18, 2 * MUL_E18],
+            0.1,
+            0.2,
+            1000000,
+            0.00001,
+            600u32,
+        )
+        .unwrap();
     }
 
     #[test]
