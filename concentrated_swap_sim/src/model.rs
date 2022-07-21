@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyTuple};
+use pyo3::types::{PyDict, PyTuple};
 
 const FILE_NAME: &str = "simulation.py";
 const MODULE_NAME: &str = "simulation";
@@ -38,14 +38,14 @@ impl ConcentratedPairModel {
         out_fee: f64,
         fee_gamma: u128,
         adjustment_step: f64,
-        ma_half_time: u32,
+        ma_half_time: u64,
     ) -> PyResult<Self> {
-        let kwargs = vec![
-            ("mid_fee", mid_fee),
-            ("out_fee", out_fee),
-            ("fee_gamma", fee_gamma as f64),
-            ("adjustment_step", adjustment_step),
-            ("ma_half_time", ma_half_time as f64),
+        let kwargs: Vec<(&str, Box<dyn ToPyObject>)> = vec![
+            ("mid_fee", Box::new(mid_fee)),
+            ("out_fee", Box::new(out_fee)),
+            ("fee_gamma", Box::new(fee_gamma)),
+            ("adjustment_step", Box::new(adjustment_step)),
+            ("ma_half_time", Box::new(ma_half_time)),
         ];
 
         Self::internal_new(
@@ -56,7 +56,7 @@ impl ConcentratedPairModel {
 
     fn internal_new(
         args: impl IntoPy<Py<PyTuple>>,
-        kwargs: Option<Vec<(&str, f64)>>,
+        kwargs: Option<Vec<(&str, Box<dyn ToPyObject>)>>,
     ) -> PyResult<Self> {
         pyo3::prepare_freethreaded_python();
 
@@ -64,9 +64,16 @@ impl ConcentratedPairModel {
         let py = gil.python();
         let sim = PyModule::from_code(py, FILE_CONTENT, FILE_NAME, MODULE_NAME)?;
         let trader_class = sim.getattr("Trader")?;
-        let trader = trader_class
-            .call(args, kwargs.map(|arg| arg.into_py_dict(py)))?
-            .to_object(py);
+        let kwargs = kwargs
+            .map(|args| -> PyResult<&PyDict> {
+                let dict = PyDict::new(py);
+                for (key, value) in args {
+                    dict.set_item(key, value.to_object(py))?;
+                }
+                Ok(dict)
+            })
+            .transpose()?;
+        let trader = trader_class.call(args, kwargs)?.to_object(py);
 
         Ok(Self { gil, trader })
     }
@@ -168,7 +175,7 @@ mod tests {
         let x_amount: u128 = model.call("sell", (1 * MUL_E18, 0, 1)).unwrap();
         assert_eq!(1.9979999999956721_f64, x_amount as f64 / MUL_E18 as f64);
 
-        let model = ConcentratedPairModel::new(
+        ConcentratedPairModel::new(
             2000 * A_MUL,
             (1e-4 * MUL_E18 as f64) as u128,
             [500_000 * MUL_E18, 250_000 * MUL_E18].to_vec(),
@@ -178,7 +185,7 @@ mod tests {
             0.2,
             1000000,
             0.00001,
-            600u32,
+            600u64,
         )
         .unwrap();
     }
