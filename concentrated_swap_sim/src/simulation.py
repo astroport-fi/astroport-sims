@@ -221,12 +221,12 @@ def solve_D_vyper(ANN, gamma, x_unsorted):
     if x[0] < x[1]:
         x = [x_unsorted[1], x_unsorted[0]]
 
-    assert x[0] > 10**9 - 1 and x[0] < 10**15 * 10**18 + 1  # dev: unsafe values x[0]
-    assert x[1] * 10**18 / x[0] > 10**14-1  # dev: unsafe values x[i] (input)
+    assert x[0] > 10 ** 9 - 1 and x[0] < 10 ** 15 * 10 ** 18 + 1  # dev: unsafe values x[0]
+    assert x[1] * 10 ** 18 / x[0] > 10 ** 14 - 1  # dev: unsafe values x[i] (input)
 
     D = N_COINS * geometric_mean(x)
     S = x[0] + x[1]
-    __g1k0 = gamma + 10**18
+    __g1k0 = gamma + 10 ** 18
 
     for i in range(255):
         D_prev = D
@@ -237,7 +237,7 @@ def solve_D_vyper(ANN, gamma, x_unsorted):
         # for _x in x:
         #     K0 = K0 * _x * N_COINS / D
         # collapsed for 2 coins
-        K0 = unsafe_div(unsafe_div((10**18 * N_COINS**2) * x[0], D) * x[1], D)
+        K0 = unsafe_div(unsafe_div((10 ** 18 * N_COINS ** 2) * x[0], D) * x[1], D)
 
         _g1k0 = __g1k0
         if _g1k0 > K0:
@@ -246,20 +246,20 @@ def solve_D_vyper(ANN, gamma, x_unsorted):
             _g1k0 = unsafe_sub(K0, _g1k0) + 1  # > 0
 
         # D / (A * N**N) * _g1k0**2 / gamma**2
-        mul1 = unsafe_div(unsafe_div(unsafe_div(10**18 * D, gamma) * _g1k0, gamma) * _g1k0 * A_MULTIPLIER, ANN)
+        mul1 = unsafe_div(unsafe_div(unsafe_div(10 ** 18 * D, gamma) * _g1k0, gamma) * _g1k0 * A_MULTIPLIER, ANN)
 
         # 2*N*K0 / _g1k0
-        mul2 = unsafe_div(((2 * 10**18) * N_COINS) * K0, _g1k0)
+        mul2 = unsafe_div(((2 * 10 ** 18) * N_COINS) * K0, _g1k0)
 
-        neg_fprime = (S + unsafe_div(S * mul2, 10**18)) + mul1 * N_COINS // K0 - unsafe_div(mul2 * D, 10**18)
+        neg_fprime = (S + unsafe_div(S * mul2, 10 ** 18)) + mul1 * N_COINS // K0 - unsafe_div(mul2 * D, 10 ** 18)
 
         # D -= f / fprime
         D_plus = D * (neg_fprime + S) // neg_fprime
-        D_minus = D*D // neg_fprime
-        if 10**18 > K0:
-            D_minus += unsafe_div(D * (mul1 // neg_fprime), 10**18) * unsafe_sub(10**18, K0) // K0
+        D_minus = D * D // neg_fprime
+        if 10 ** 18 > K0:
+            D_minus += unsafe_div(D * (mul1 // neg_fprime), 10 ** 18) * unsafe_sub(10 ** 18, K0) // K0
         else:
-            D_minus -= unsafe_div(D * (mul1 // neg_fprime), 10**18) * unsafe_sub(K0, 10**18) // K0
+            D_minus -= unsafe_div(D * (mul1 // neg_fprime), 10 ** 18) * unsafe_sub(K0, 10 ** 18) // K0
 
         if D_plus > D_minus:
             D = unsafe_sub(D_plus, D_minus)
@@ -271,11 +271,11 @@ def solve_D_vyper(ANN, gamma, x_unsorted):
         else:
             diff = unsafe_sub(D_prev, D)
 
-        if diff * 10**14 < max(10**16, D):  # Could reduce precision for gas efficiency here
+        if diff * 10 ** 14 < max(10 ** 16, D):  # Could reduce precision for gas efficiency here
             # Test that we are safe with the next newton_y
             for _x in x:
-                frac = _x * 10**18 // D
-                assert (frac > 10**16 - 1) and (frac < 10**20 + 1)  # dev: unsafe values x[i]
+                frac = _x * 10 ** 18 // D
+                assert (frac > 10 ** 16 - 1) and (frac < 10 ** 20 + 1)  # dev: unsafe values x[i]
             return D
 
     raise Exception("Did not converge")
@@ -387,8 +387,8 @@ class Trader:
 
         self.t = 0
 
-    def fee(self):
-        f = reduction_coefficient(self.curve.xp(), self.fee_gamma)
+    def fee(self, xp=None):
+        f = reduction_coefficient(xp or self.curve.xp(), self.fee_gamma)
         return (self.mid_fee * f + self.out_fee * (10 ** 18 - f)) // 10 ** 18
 
     def price(self, i, j):
@@ -465,18 +465,19 @@ class Trader:
             # calculate swap using internal pools' representation
             internal_x = self.curve.y(y, j, i, hack=(hacked_xp, dy * self.curve.p[j] // 10 ** 18))
             internal_dx = hacked_xp[i] - internal_x
+            hacked_xp[i] = internal_x - internal_dx
+            fee = self.fee(xp=hacked_xp)
+            fee_amount = internal_dx * fee // 10 ** 10
+            hacked_xp[i] += fee_amount
+            internal_dx -= fee_amount
 
             dx = internal_dx * 10 ** 18 // self.curve.p[i]
             self.curve.x[i] = x_old[i] - dx
             self.curve.x[j] = y
-            fee = self.fee()
-            fee_amount = dx * fee // 10 ** 10
-            self.curve.x[i] += fee_amount
-            dx = dx - fee_amount
             if dx * 10 ** 18 // dy < min_price or dx < 0:
                 self.curve.x = x_old
                 return False
-            self.update_xcp()
+            # self.update_xcp()
             return dx
         except ValueError:
             return False
@@ -499,11 +500,8 @@ class Trader:
         else:
             self.last_price[a] = self.last_price[0] * 10 ** 18 // p
 
-        # price_oracle looks like [1, p1, p2, ...] normalized to 1e18
-        norm = int(sum(
-            (p_real * 10 ** 18 // p_target - 10 ** 18) ** 2
-            for p_real, p_target in zip(self.price_oracle, self.curve.p)
-        ) ** 0.5)
+        # simplified for 2pool
+        norm = abs(self.price_oracle[1] * 10 ** 18 // self.curve.p[1] - 10 ** 18)
         adjustment_step = max(self.adjustment_step, norm // 10)
         if norm <= adjustment_step:
             # Already close to the target price
@@ -514,10 +512,12 @@ class Trader:
                   for p_real, p_target in zip(self.price_oracle[1:], self.curve.p[1:])]
 
         old_p = self.curve.p[:]
-        old_profit = self.xcp_profit_real
+        old_profit_real = self.xcp_profit_real
+        old_profit = self.xcp_profit
         old_xcp = self.xcp
 
-        _xp = self.curve.x.copy()
+        self.update_xcp()
+        _xp = self.curve.xp()
         _xp[1] = _xp[1] * p_new[1] // old_p[1]
         _D = solve_D_vyper(self.curve.A, self.curve.gamma, _xp)
         _xp = [_D // N_COINS, _D * 10 ** 18 // (N_COINS * p_new[1])]
@@ -527,7 +527,8 @@ class Trader:
         if 2 * (self.xcp_profit_real - 10 ** 18) <= self.xcp_profit - 10 ** 18:
             # If real profit is less than half of maximum - revert params back
             self.curve.p = old_p
-            self.xcp_profit_real = old_profit
+            self.xcp_profit_real = old_profit_real
+            self.xcp_profit = old_profit
             self.xcp = old_xcp
         else:
             if debug:
