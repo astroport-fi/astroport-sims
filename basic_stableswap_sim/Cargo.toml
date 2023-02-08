@@ -6,5 +6,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-pyo3 = "0.18"
+[dependencies.pyo3]
+version = "0.18.1"
+# this is necessary to automatically initialize the Python interpreter
+features = ["auto-initialize"]
